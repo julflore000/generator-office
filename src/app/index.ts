@@ -14,6 +14,9 @@ import projectsJsonData from './config/projectsJsonData';
 import { helperMethods } from './helpers/helperMethods';
 import { modifyManifestFile } from 'office-addin-manifest';
 
+import * as telemetry from "./../../node_modules/office-addin-telemetry/lib/officeAddinTelemetry";
+const officeaddinTelemetry = new telemetry.OfficeAddinTelemetry('1ced6a2f-b3b2-4da5-a1b8-746512fbc842', telemetry.telemetryType.applicationinsights, true);
+
 let insight = appInsights.getClient('1ced6a2f-b3b2-4da5-a1b8-746512fbc840');
 const childProcessExec = promisify(childProcess.exec);
 const excelCustomFunctions = `excel-functions`;
