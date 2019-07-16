@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
  * See LICENSE in the project root for license information.
  */
@@ -15,7 +15,15 @@ import { helperMethods } from './helpers/helperMethods';
 import { modifyManifestFile } from 'office-addin-manifest';
 
 import * as telemetry from "./../../node_modules/office-addin-telemetry/lib/officeAddinTelemetry";
-const officeaddinTelemetry = new telemetry.OfficeAddinTelemetry('1ced6a2f-b3b2-4da5-a1b8-746512fbc842', telemetry.telemetryType.applicationinsights, true);
+const telemetryObject = {
+  groupName: "generator-office",
+  instrumentationKey: "de0d9e7c-1f46-4552-bc21-4e43e489a015",
+  promptQuestion: "-----------------------------------------\nDo you want to opt-in for telemetry?[y/n]\n-----------------------------------------",
+  telemetryEnabled: true,
+  telemetryType: telemetry.telemetryType.applicationinsights,
+  testData: false
+}
+const addInTelemetry = new telemetry.OfficeAddinTelemetry(telemetryObject);
 
 let insight = appInsights.getClient('1ced6a2f-b3b2-4da5-a1b8-746512fbc840');
 const childProcessExec = promisify(childProcess.exec);
@@ -24,12 +32,6 @@ const manifest = 'manifest';
 const typescript = `TypeScript`;
 const javascript = `JavaScript`;
 let language;
-
-/* Remove unwanted tags */
-delete insight.context.tags['ai.cloud.roleInstance'];
-delete insight.context.tags['ai.device.osVersion'];
-delete insight.context.tags['ai.device.osArchitecture'];
-delete insight.context.tags['ai.device.osPlatform'];
 
 module.exports = yo.extend({
  /*  Setup the generator */
@@ -171,16 +173,18 @@ module.exports = yo.extend({
 
       /* Configure project properties based on user input or answers to prompts */
       this._configureProject(answerForProjectType, answerForScriptType, answerForHost, answerForName, isManifestProject, isExcelFunctionsProject);
-
-      /* Gnerate Insights logging */
+      //throw new Error("this error contains a file path: (C://Users//t-juflor//AppData//Roaming//npm//node_modules//balanced-match//index.js)");
       const noElapsedTime = 0;
-      insight.trackEvent('Name', { Name: this.project.name }, { durationForName });
-      insight.trackEvent('Host', { Host: this.project.host }, { durationForHost });
-      insight.trackEvent('ScriptType', { ScriptType: this.project.scriptType }, { noElapsedTime });
-      insight.trackEvent('IsManifestOnly', { IsManifestOnly: this.project.isManifestOnly.toString() }, { noElapsedTime });
-      insight.trackEvent('ProjectType', { ProjectType: this.project.projectType }, { durationForProjectType });
+      var projectInfo = {};
+      addInTelemetry.addTelemetry(projectInfo, "Name", this.project.name, durationForName);
+      addInTelemetry.addTelemetry(projectInfo, "Host", this.project.host, durationForHost);
+      addInTelemetry.addTelemetry(projectInfo, "ScriptType", this.project.scriptType, noElapsedTime);
+      addInTelemetry.addTelemetry(projectInfo, "IsManifestOnly", this.project.isManifestOnly.toString(), noElapsedTime);
+      addInTelemetry.addTelemetry(projectInfo, "ProjectType", this.project.projectType, durationForProjectType);
+      addInTelemetry.reportEvent("generatorOfficeProjectInfo",projectInfo);
+      /* Generate Insights logging */
     } catch (err) {
-      insight.trackException(new Error('Prompting Error: ' + err));
+      addInTelemetry.reportError("sendProjectInfo",new Error('Prompting Error: ' + err));
     }
   },
 
@@ -191,7 +195,7 @@ module.exports = yo.extend({
       done();
     })
     .catch((err) => {
-      insight.trackException(new Error('Installation Error: ' + err));
+      addInTelemetry.reportError("installingIssue",new Error('Installation Error: ' + err));
       process.exitCode = 1;
     });
   },
@@ -213,7 +217,7 @@ module.exports = yo.extend({
         });
       }
     } catch (err) {
-      insight.trackException(new Error('Installation Error: ' + err));
+      addInTelemetry.reportError("installingIssue",new Error('Installation Error: ' + err));
       process.exitCode = 1;
     }
   },
@@ -256,10 +260,18 @@ module.exports = yo.extend({
       this._exitYoOfficeIfProjectFolderExists();
 
       let duration = this.project.duration;
-      insight.trackEvent('App_Data', { AppID: this.project.projectId, Host: this.project.host, ProjectType: this.project.projectType, isTypeScript: (this.project.scriptType === typescript).toString() }, { duration });
+      var AppData = {};
+      addInTelemetry.addTelemetry(AppData, "AppID",this.project.projectId);
+      addInTelemetry.addTelemetry(AppData, "Host", this.project.host);
+      addInTelemetry.addTelemetry(AppData, "isTypeScript", (this.project.scriptType === typescript));
+      addInTelemetry.addTelemetry(AppData, "ProjectType", this.project.projectType);
+      addInTelemetry.addTelemetry(AppData, "totalTimeTaken", duration);
+      addInTelemetry.reportEvent("generatorOfficeProjectInfo",AppData);
+      //insight.trackEvent('App_Data', { AppID: this.project.projectId, Host: this.project.host, ProjectType: this.project.projectType, isTypeScript: (this.project.scriptType === typescript).toString() }, { duration });
     }
     catch (err) {
-      insight.trackException(new Error('Configuration Error: ' + err));
+      addInTelemetry.reportError("configurationError",new Error('Configuration Error: ' + err));
+
     }
   },
   
@@ -295,6 +307,8 @@ module.exports = yo.extend({
       }
       catch (err) {
         insight.trackException(new Error('File Copy Error: ' + err));
+        addInTelemetry.reportError("fileCopyError",new Error("File Copy Error: " + err));
+
         return reject(err);
       }
     });
